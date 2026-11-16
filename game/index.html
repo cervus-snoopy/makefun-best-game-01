@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VOIDLANTERN — Keeper of the Last Light</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23ffb347'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23fff3c4'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --gold: #ffd76a;
+    --gold-dim: #ffb347;
+    --ink: #0b0b26;
+    --panel: rgba(10, 10, 32, 0.82);
+    --violet: #b78cff;
+    --teal: #4de8c2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #050512; height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #eef0ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  #wrap {
+    position: relative;
+    width: min(960px, 100vw);
+    aspect-ratio: 960 / 600;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #0b0b26;
+    cursor: crosshair;
+    border-radius: 6px;
+  }
+  .hidden { display: none !important; }
+
+  /* ---- HUD ---- */
+  #hud {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity .25s;
+  }
+  #hud.on { opacity: 1; }
+  .hud-top {
+    position: absolute; top: 12px; left: 16px; right: 16px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    text-shadow: 0 1px 4px rgba(0,0,0,.8);
+  }
+  .hud-label { font-size: 11px; letter-spacing: .18em; color: #9aa3d1; }
+  .hud-big { font-size: 26px; line-height: 1.05; color: #fff; }
+  #lightWrap { width: 220px; }
+  #lightBar {
+    height: 10px; border-radius: 5px; background: rgba(255,255,255,.14);
+    overflow: hidden; margin-top: 4px;
+    border: 1px solid rgba(255,255,255,.22);
+  }
+  #lightFill {
+    height: 100%; width: 100%;
+    background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+    transition: width .2s;
+  }
+  #lightFill.low { background: linear-gradient(90deg, #ff5d73, #ff8ba0); }
+  #scoreBox { text-align: right; }
+  #waveBox { text-align: center; }
+  #comboText {
+    color: var(--gold); font-size: 15px; letter-spacing: .12em;
+    min-height: 20px; text-align: center; margin-top: 2px;
+  }
+  .hud-bottom {
+    position: absolute; bottom: 12px; left: 16px; right: 16px;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    font-size: 11px; letter-spacing: .14em; color: #9aa3d1;
+    text-shadow: 0 1px 4px rgba(0,0,0,.8);
+  }
+  #dashWrap { width: 140px; }
+  #dashBar {
+    height: 6px; border-radius: 3px; background: rgba(255,255,255,.14);
+    overflow: hidden; margin-top: 4px;
+  }
+  #dashFill { height: 100%; width: 100%; background: var(--teal); }
+  #muteBtn {
+    pointer-events: auto;
+    background: var(--panel); color: #cfd6ff;
+    border: 1px solid rgba(255,255,255,.25); border-radius: 4px;
+    font: 600 11px system-ui, sans-serif; letter-spacing: .12em;
+    padding: 6px 10px; cursor: pointer;
+  }
+  #muteBtn:hover { border-color: var(--gold); color: var(--gold); }
+
+  /* ---- Banner ---- */
+  #banner {
+    position: absolute; top: 34%; left: 0; right: 0;
+    text-align: center; pointer-events: none;
+    opacity: 0; transform: scale(.96);
+    transition: opacity .3s, transform .3s;
+    text-shadow: 0 2px 12px rgba(0,0,0,.9);
+  }
+  #banner.show { opacity: 1; transform: scale(1); }
+  #bannerTitle { font-size: 40px; letter-spacing: .22em; color: var(--gold); font-weight: 800; }
+  #bannerSub { font-size: 15px; color: #cfd6ff; margin-top: 6px; letter-spacing: .06em; }
+
+  /* ---- Menus ---- */
+  .menu {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(10,10,32,.42) 0%, rgba(5,5,18,.88) 78%);
+    text-align: center; padding: 24px;
+  }
+  .menu h1 {
+    font-size: 52px; letter-spacing: .18em; font-weight: 800;
+    color: var(--gold);
+    text-shadow: 0 0 24px rgba(255, 190, 60, .55), 0 2px 0 rgba(0,0,0,.6);
+  }
+  .menu h2 {
+    font-size: 15px; letter-spacing: .3em; color: var(--violet);
+    margin-top: 4px; font-weight: 600;
+  }
+  .menu p { max-width: 560px; color: #cfd6ff; font-size: 15px; line-height: 1.55; margin-top: 14px; }
+  .menu p b { color: #fff; }
+  .controls {
+    display: grid; grid-template-columns: auto auto; gap: 5px 18px;
+    margin-top: 18px; font-size: 13px; color: #9aa3d1; text-align: left;
+  }
+  .controls b { color: #fff; font-weight: 700; }
+  .big-btn {
+    margin-top: 22px;
+    background: linear-gradient(180deg, #ffd76a, #f0a832);
+    color: #241a02; border: none; border-radius: 6px;
+    font: 800 17px system-ui, sans-serif; letter-spacing: .14em;
+    padding: 13px 34px; cursor: pointer;
+    box-shadow: 0 4px 0 #8a5a1d, 0 8px 24px rgba(255, 190, 60, .35);
+  }
+  .big-btn:hover { filter: brightness(1.07); }
+  .big-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #8a5a1d; }
+  .menu .tiny { font-size: 12px; color: #7c86b8; margin-top: 16px; letter-spacing: .08em; }
+  .menu h3 { font-size: 30px; letter-spacing: .16em; color: var(--gold); font-weight: 800; }
+  .stats { margin-top: 12px; font-size: 17px; color: #fff; line-height: 1.7; }
+  .stats span { color: var(--gold); font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="960" height="600"></canvas>
+
+  <div id="hud">
+    <div class="hud-top">
+      <div id="lightWrap">
+        <div class="hud-label">LANTERN LIGHT · <span id="lightText">100</span></div>
+        <div id="lightBar"><div id="lightFill"></div></div>
+      </div>
+      <div id="waveBox">
+        <div class="hud-label">WAVE</div>
+        <div class="hud-big" id="waveText">1 / 10</div>
+        <div id="comboText"></div>
+      </div>
+      <div id="scoreBox">
+        <div class="hud-label">SCORE</div>
+        <div class="hud-big" id="scoreText">0</div>
+      </div>
+    </div>
+    <div class="hud-bottom">
+      <div id="dashWrap">
+        <div>DASH · SPACE</div>
+        <div id="dashBar"><div id="dashFill"></div></div>
+      </div>
+      <div>WASD MOVE · MOUSE AIM · CLICK SHOOT · P PAUSE</div>
+      <button id="muteBtn" type="button">SOUND: ON</button>
+    </div>
+  </div>
+
+  <div id="banner" class="hidden">
+    <div id="bannerTitle"></div>
+    <div id="bannerSub"></div>
+  </div>
+
+  <div id="menu" class="menu">
+    <h1>VOIDLANTERN</h1>
+    <h2>KEEPER OF THE LAST LIGHT</h2>
+    <p>
+      Night has swallowed the world, and your lantern is the last light in it.
+      Dark wisps swarm from the edges — <b>shoot them with bolts of light</b>,
+      <b>gather the embers</b> they drop to refuel your flame, and <b>survive
+      all 10 waves until dawn</b>. Your light drains a little every second and
+      a lot with every touch. When it dies, the dark takes you.
+    </p>
+    <div class="controls">
+      <span><b>W A S D / arrows</b></span><span>move</span>
+      <span><b>Mouse</b></span><span>aim</span>
+      <span><b>Hold click</b></span><span>shoot bolts of light</span>
+      <span><b>Space</b></span><span>dash (briefly untouchable)</span>
+      <span><b>P</b></span><span>pause &nbsp;·&nbsp; <b>R</b> restart &nbsp;·&nbsp; <b>M</b> mute</span>
+    </div>
+    <button id="startBtn" class="big-btn" type="button">LIGHT THE LANTERN</button>
+    <div class="tiny">10 WAVES · 4 KINDS OF DARK · EMBERS REFUEL YOUR LIGHT · DAWN IS THE WIN</div>
+  </div>
+
+  <div id="pause" class="menu hidden">
+    <h3>PAUSED</h3>
+    <p>The dark waits. Your light holds.</p>
+    <button id="resumeBtn" class="big-btn" type="button">KEEP GOING</button>
+    <div class="tiny">P resume · R restart</div>
+  </div>
+
+  <div id="over" class="menu hidden">
+    <h3>THE DARK TAKES YOU</h3>
+    <p>Your lantern gutters out on wave <b id="finalWave">1</b>. The wisps drift on, hungry.</p>
+    <div class="stats">SCORE <span id="finalScore">0</span></div>
+    <button id="retryBtn" class="big-btn" type="button">RELIGHT THE LANTERN</button>
+    <div class="tiny">R to restart</div>
+  </div>
+
+  <div id="win" class="menu hidden">
+    <h3>DAWN BREAKS</h3>
+    <p>Ten waves, and still burning. The first sun in a hundred nights rises over a world you kept lit.</p>
+    <div class="stats">SCORE <span id="winScore">0</span> · WISPS BANISHED <span id="winKills">0</span></div>
+    <button id="againBtn" class="big-btn" type="button">KEEP THE LIGHT AGAIN</button>
+    <div class="tiny">R to play again</div>
+  </div>
+</div>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>
